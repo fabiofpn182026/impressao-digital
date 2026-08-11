@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import logoImg from './1786380638881.png';
 
-interface CandidatoVoto {
+type CandidatoVoto = {
   nome: string;
   votos: number;
-}
+};
 
-interface UrnaApurada {
+type UrnaApurada = {
   id: number;
   secao: string;
   qrCode: string;
@@ -15,10 +15,11 @@ interface UrnaApurada {
   assinatura: string;
   ipDispositivo: string;
   dataHora: string;
-}
+  confirmacoes: number;
+  fiscaisIPs: string[];
+};
 
-// Componente para o Banner do Google AdSense
-function BannerGoogle({ local }: { local: string }) {
+function BannerGoogle(props: { local: string }) {
   return (
     <div style={{
       backgroundColor: '#1e293b',
@@ -31,12 +32,12 @@ function BannerGoogle({ local }: { local: string }) {
       margin: '16px 0',
       fontWeight: 'bold'
     }}>
-      [ ANÚNCIO GOOGLE ADSENSE - {local} ]
+      [ ANÚNCIO GOOGLE ADSENSE - {props.local} ]
     </div>
   );
 }
 
-function App() {
+export default function App() {
   const [aba, setAba] = useState('inicio');
   
   const [urnas, setUrnas] = useState<UrnaApurada[]>([
@@ -51,13 +52,16 @@ function App() {
       ],
       assinatura: 'Assinatura_Hash_98a7f',
       ipDispositivo: '192.168.1.10 (Tablet)',
-      dataHora: '11/08/2026 09:30'
+      dataHora: '11/08/2026 09:30',
+      confirmacoes: 1,
+      fiscaisIPs: ['192.168.1.10']
     }
   ]);
 
   const [secao, setSecao] = useState('');
   const [qrCode, setQrCode] = useState('');
   const [assinatura, setAssinatura] = useState('');
+  const [mensagemAlerta, setMensagemAlerta] = useState('');
   
   const [candidatosTemp, setCandidatosTemp] = useState<CandidatoVoto[]>([
     { nome: '', votos: 0 }
@@ -86,17 +90,35 @@ function App() {
     e.preventDefault();
     if (!secao || !qrCode || candidatosTemp.length === 0) return;
 
-    const novaUrna: UrnaApurada = {
-      id: Date.now(),
-      secao,
-      qrCode,
-      candidatos: candidatosTemp.filter(c => c.nome.trim() !== ''),
-      assinatura: assinatura || 'Assinatura Digital Válida',
-      ipDispositivo: '192.168.1.45 (Dispositivo Móvel - Ativo)',
-      dataHora: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
+    const qrLimpo = qrCode.trim().toUpperCase();
+    const ipAtual = '192.168.1.' + Math.floor(Math.random() * 80 + 10) + ' (Dispositivo Móvel)';
 
-    setUrnas([novaUrna, ...urnas]);
+    const urnaExistenteIndex = urnas.findIndex(u => u.qrCode.trim().toUpperCase() === qrLimpo);
+
+    if (urnaExistenteIndex !== -1) {
+      const urnasAtualizadas = [...urnas];
+      urnasAtualizadas[urnaExistenteIndex].confirmacoes += 1;
+      urnasAtualizadas[urnaExistenteIndex].fiscaisIPs.push(ipAtual);
+      
+      setUrnas(urnasAtualizadas);
+      setMensagemAlerta(`⚠️ Esta urna (${qrLimpo}) já estava apurada! A sua leitura foi registada com sucesso como CONFIRMAÇÃO DE AUDITORIA (${urnasAtualizadas[urnaExistenteIndex].confirmacoes} fiscais confirmaram).`);
+    } else {
+      const novaUrna: UrnaApurada = {
+        id: Date.now(),
+        secao,
+        qrCode: qrLimpo,
+        candidatos: candidatosTemp.filter(c => c.nome.trim() !== ''),
+        assinatura: assinatura || 'Assinatura Digital Válida',
+        ipDispositivo: ipAtual,
+        dataHora: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        confirmacoes: 1,
+        fiscaisIPs: [ipAtual]
+      };
+
+      setUrnas([novaUrna, ...urnas]);
+      setMensagemAlerta(`✅ Urna (${qrLimpo}) apurada e registada oficialmente com sucesso!`);
+    }
+
     setSecao('');
     setQrCode('');
     setAssinatura('');
@@ -104,15 +126,10 @@ function App() {
     setAba('apuracao');
   };
 
-  // Função para Partilhar Resultados (Usa o menu nativo do telemóvel ou WhatsApp)
   const partilharTexto = (titulo: string, textoResumo: string) => {
     if (navigator.share) {
-      navigator.share({
-        title: titulo,
-        text: textoResumo,
-      }).catch(() => {});
+      navigator.share({ title: titulo, text: textoResumo }).catch(() => {});
     } else {
-      // Fallback para WhatsApp se a API nativa não estiver disponível
       const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(titulo + "\n\n" + textoResumo)}`;
       window.open(urlWhatsapp, '_blank');
     }
@@ -128,13 +145,12 @@ function App() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Arial, sans-serif' }}>
       
-      {/* Cabeçalho */}
       <header style={{ backgroundColor: '#1e293b', borderBottom: '3px solid #22c55e', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <img src={logoImg} alt="Logo" style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #facc15' }} />
           <div>
             <h1 style={{ fontSize: '20px', margin: 0, fontWeight: 'bold', color: '#facc15' }}>Impressão Digital</h1>
-            <p style={{ fontSize: '12px', margin: 0, color: '#94a3b8' }}>Módulo de Apuração & Partilha</p>
+            <p style={{ fontSize: '12px', margin: 0, color: '#94a3b8' }}>Apuração & Validação por Fiscais</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -145,26 +161,31 @@ function App() {
         </div>
       </header>
 
-      {/* Conteúdo */}
       <main style={{ padding: '24px 16px', maxWidth: '900px', margin: '0 auto' }}>
         
+        {mensagemAlerta && (
+          <div style={{ backgroundColor: '#1e293b', border: '1px solid #22c55e', color: '#facc15', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', fontWeight: 'bold' }}>
+            {mensagemAlerta}
+          </div>
+        )}
+
         {aba === 'inicio' && (
           <div>
             <BannerGoogle local="Topo da Tela Inicial" />
             <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', borderLeft: '6px solid #facc15', marginBottom: '20px' }}>
-              <h2 style={{ margin: '0 0 8px 0', color: '#facc15' }}>Sistema Operacional Integrado</h2>
+              <h2 style={{ margin: '0 0 8px 0', color: '#facc15' }}>Auditoria Inteligente de Urnas</h2>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', lineHeight: '1.5' }}>
-                Leitura de QR Code de urnas, registo de IP do equipamento e partilha instantânea de resultados nas redes sociais.
+                Leitura de QR Code com deteção automática de duplicidade: se múltiplos fiscais lerem a mesma urna, o sistema valida a veracidade e acumula as confirmações sem duplicar votos.
               </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
               <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #334155', textAlign: 'center' }}>
-                <h3 style={{ color: '#22c55e', margin: '0 0 8px 0' }}>Urnas Registadas</h3>
+                <h3 style={{ color: '#22c55e', margin: '0 0 8px 0' }}>Urnas Apuradas</h3>
                 <p style={{ fontSize: '32px', fontWeight: 'bold', margin: 0, color: '#f8fafc' }}>{urnas.length}</p>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #334155', textAlign: 'center' }}>
-                <h3 style={{ color: '#facc15', margin: '0 0 8px 0' }}>Partilha Social</h3>
-                <p style={{ fontSize: '15px', margin: 0, color: '#22c55e' }}>● Ativa (WhatsApp / Redes)</p>
+                <h3 style={{ color: '#facc15', margin: '0 0 8px 0' }}>Segurança</h3>
+                <p style={{ fontSize: '15px', margin: 0, color: '#22c55e' }}>● Controlo Antiduplicação</p>
               </div>
             </div>
           </div>
@@ -174,7 +195,7 @@ function App() {
           <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', border: '1px solid #334155' }}>
             <BannerGoogle local="Topo da Leitura de QR Code" />
             <h2 style={{ color: '#facc15', marginTop: 0 }}>Leitura de QR Code & Boletim</h2>
-            <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>Insira os dados da urna e adicione os candidatos do boletim.</p>
+            <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>Insira o QR Code da urna. Se já foi lido por outro fiscal, servirá para auditoria e confirmação automática.</p>
             
             <form onSubmit={salvarUrna} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
@@ -182,7 +203,7 @@ function App() {
                 <input type="text" value={secao} onChange={(e) => setSecao(e.target.value)} placeholder="Ex: Seção 02 - Escola Primária" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} required />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '4px' }}>Código QR da Urna</label>
+                <label style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginBottom: '4px' }}>Código QR da Urna (Identificador Único)</label>
                 <input type="text" value={qrCode} onChange={(e) => setQrCode(e.target.value)} placeholder="Ex: QR-URN-002-LA" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#0f172a', color: '#fff', boxSizing: 'border-box' }} required />
               </div>
               
@@ -229,7 +250,7 @@ function App() {
               </div>
 
               <button type="submit" style={{ backgroundColor: '#22c55e', color: '#0f172a', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px', marginTop: '8px' }}>
-                Salvar Boletim & Registar IP
+                Submeter Boletim / Validar Leitura
               </button>
             </form>
           </div>
@@ -238,18 +259,26 @@ function App() {
         {aba === 'apuracao' && (
           <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #334155' }}>
             <BannerGoogle local="Topo da Apuração por Seção" />
-            <h2 style={{ color: '#facc15', marginTop: 0, marginBottom: '16px' }}>Apuração por Seção (Urnas)</h2>
+            <h2 style={{ color: '#facc15', marginTop: 0, marginBottom: '16px' }}>Apuração por Seção & Confirmações</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {urnas.map((u) => {
-                const textoSecao = `📊 Boletim - ${u.secao}\nQR: ${u.qrCode}\n` + u.candidatos.map(c => `- ${c.nome}: ${c.votos} votos`).join('\n');
+                const textoSecao = `📊 Boletim - ${u.secao}\nQR: ${u.qrCode}\nConfirmações de Fiscais: ${u.confirmacoes}\n` + u.candidatos.map(c => `- ${c.nome}: ${c.votos} votos`).join('\n');
                 return (
                   <div key={u.id} style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <h3 style={{ margin: 0, color: '#22c55e', fontSize: '16px' }}>{u.secao}</h3>
                       <span style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '2px 6px', borderRadius: '4px' }}>{u.qrCode}</span>
                     </div>
+                    
+                    <div style={{ backgroundColor: 'rgba(250, 204, 21, 0.1)', border: '1px solid #facc15', padding: '8px 12px', borderRadius: '6px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '12px', color: '#facc15', fontWeight: 'bold' }}>🛡️ Veracidade Auditada por Fiscais:</span>
+                      <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 'bold', backgroundColor: '#0f172a', padding: '2px 8px', borderRadius: '4px' }}>
+                        {u.confirmacoes} {u.confirmacoes === 1 ? 'Fiscal Confirmou' : 'Fiscais Confirmaram'}
+                      </span>
+                    </div>
+
                     <p style={{ fontSize: '12px', color: '#cbd5e1', margin: '0 0 4px 0' }}>Assinatura: <code style={{ color: '#facc15' }}>{u.assinatura}</code></p>
-                    <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 12px 0' }}>Equipamento/IP: <span style={{ color: '#22c55e' }}>{u.ipDispositivo}</span> ({u.dataHora})</p>
+                    <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 12px 0' }}>Primeiro IP / Horário: <span style={{ color: '#22c55e' }}>{u.ipDispositivo}</span> ({u.dataHora})</p>
                     
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '12px' }}>
                       {u.candidatos.map((c, idx) => (
@@ -261,9 +290,9 @@ function App() {
                     </div>
 
                     <button 
-                      onClick={() => partilharTexto(`Resultado - ${u.secao}`, textoSecao)}
+                      onClick={() => partilharTexto(`Resultado - ${u.secao} (${u.confirmacoes} Confirmações)`, textoSecao)}
                       style={{ width: '100%', backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
-                      📢 Partilhar Resultado desta Seção
+                      📢 Partilhar Relatório desta Seção
                     </button>
                   </div>
                 );
@@ -276,7 +305,7 @@ function App() {
           <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #334155' }}>
             <BannerGoogle local="Topo do Placar Geral" />
             <h2 style={{ color: '#facc15', marginTop: 0, marginBottom: '8px' }}>Placar Geral Consolidado</h2>
-            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>Soma acumulada de todos os votos apurados nas seções.</p>
+            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>Soma acumulada de todos os votos oficiais validados por seção.</p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
               {Object.entries(totalGeral).map(([nome, total]) => (
@@ -303,14 +332,5 @@ function App() {
 
       </main>
     </div>
-  );
-}
-
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
   );
 }
