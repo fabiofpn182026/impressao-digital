@@ -55,12 +55,10 @@ function App() {
     }
   ]);
 
-  // Estados do formulário de registo
   const [secao, setSecao] = useState('');
   const [qrCode, setQrCode] = useState('');
   const [assinatura, setAssinatura] = useState('');
   
-  // Lista temporária de candidatos para a urna atual que está a ser digitalizada
   const [candidatosTemp, setCandidatosTemp] = useState<CandidatoVoto[]>([
     { nome: '', votos: 0 }
   ]);
@@ -106,7 +104,20 @@ function App() {
     setAba('apuracao');
   };
 
-  // Cálculo Geral Consolidado dinâmico para qualquer candidato
+  // Função para Partilhar Resultados (Usa o menu nativo do telemóvel ou WhatsApp)
+  const partilharTexto = (titulo: string, textoResumo: string) => {
+    if (navigator.share) {
+      navigator.share({
+        title: titulo,
+        text: textoResumo,
+      }).catch(() => {});
+    } else {
+      // Fallback para WhatsApp se a API nativa não estiver disponível
+      const urlWhatsapp = `https://api.whatsapp.com/send?text=${encodeURIComponent(titulo + "\n\n" + textoResumo)}`;
+      window.open(urlWhatsapp, '_blank');
+    }
+  };
+
   const totalGeral = urnas.reduce((acc, curr) => {
     curr.candidatos.forEach(c => {
       acc[c.nome] = (acc[c.nome] || 0) + c.votos;
@@ -122,8 +133,8 @@ function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <img src={logoImg} alt="Logo" style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #facc15' }} />
           <div>
-            <h1 style={{ fontSize: '20px', margin: 0, fontWeight: 'bold', color: '#facc15' }}>Apuração</h1>
-            <p style={{ fontSize: '12px', margin: 0, color: '#94a3b8' }}>Módulo de Leitura Dinâmica de QR Code</p>
+            <h1 style={{ fontSize: '20px', margin: 0, fontWeight: 'bold', color: '#facc15' }}>Impressão Digital</h1>
+            <p style={{ fontSize: '12px', margin: 0, color: '#94a3b8' }}>Módulo de Apuração & Partilha</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -143,7 +154,7 @@ function App() {
             <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', borderLeft: '6px solid #facc15', marginBottom: '20px' }}>
               <h2 style={{ margin: '0 0 8px 0', color: '#facc15' }}>Sistema Operacional Integrado</h2>
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', lineHeight: '1.5' }}>
-                Leitura de QR Code de urnas com suporte a qualquer quantidade de candidatos por boletim, registo automático de IP do dispositivo e consolidação em tempo real.
+                Leitura de QR Code de urnas, registo de IP do equipamento e partilha instantânea de resultados nas redes sociais.
               </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
@@ -152,8 +163,8 @@ function App() {
                 <p style={{ fontSize: '32px', fontWeight: 'bold', margin: 0, color: '#f8fafc' }}>{urnas.length}</p>
               </div>
               <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #334155', textAlign: 'center' }}>
-                <h3 style={{ color: '#facc15', margin: '0 0 8px 0' }}>Flexibilidade</h3>
-                <p style={{ fontSize: '15px', margin: 0, color: '#22c55e' }}>● Número Livre de Candidatos</p>
+                <h3 style={{ color: '#facc15', margin: '0 0 8px 0' }}>Partilha Social</h3>
+                <p style={{ fontSize: '15px', margin: 0, color: '#22c55e' }}>● Ativa (WhatsApp / Redes)</p>
               </div>
             </div>
           </div>
@@ -163,7 +174,7 @@ function App() {
           <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '12px', border: '1px solid #334155' }}>
             <BannerGoogle local="Topo da Leitura de QR Code" />
             <h2 style={{ color: '#facc15', marginTop: 0 }}>Leitura de QR Code & Boletim</h2>
-            <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>Insira os dados da urna e adicione quantos candidatos constarem no boletim daquela seção.</p>
+            <p style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '16px' }}>Insira os dados da urna e adicione os candidatos do boletim.</p>
             
             <form onSubmit={salvarUrna} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
@@ -177,7 +188,7 @@ function App() {
               
               <div style={{ borderTop: '1px solid #334155', paddingTop: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <p style={{ color: '#22c55e', fontWeight: 'bold', margin: 0, fontSize: '14px' }}>Candidatos e Votos (Leitura Dinâmica):</p>
+                  <p style={{ color: '#22c55e', fontWeight: 'bold', margin: 0, fontSize: '14px' }}>Candidatos e Votos:</p>
                   <button type="button" onClick={adicionarLinhaCandidato} style={{ backgroundColor: '#334155', color: '#22c55e', border: '1px solid #22c55e', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
                     + Adicionar Candidato
                   </button>
@@ -229,25 +240,34 @@ function App() {
             <BannerGoogle local="Topo da Apuração por Seção" />
             <h2 style={{ color: '#facc15', marginTop: 0, marginBottom: '16px' }}>Apuração por Seção (Urnas)</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {urnas.map((u) => (
-                <div key={u.id} style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h3 style={{ margin: 0, color: '#22c55e', fontSize: '16px' }}>{u.secao}</h3>
-                    <span style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '2px 6px', borderRadius: '4px' }}>{u.qrCode}</span>
+              {urnas.map((u) => {
+                const textoSecao = `📊 Boletim - ${u.secao}\nQR: ${u.qrCode}\n` + u.candidatos.map(c => `- ${c.nome}: ${c.votos} votos`).join('\n');
+                return (
+                  <div key={u.id} style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <h3 style={{ margin: 0, color: '#22c55e', fontSize: '16px' }}>{u.secao}</h3>
+                      <span style={{ fontSize: '12px', color: '#94a3b8', backgroundColor: '#1e293b', padding: '2px 6px', borderRadius: '4px' }}>{u.qrCode}</span>
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#cbd5e1', margin: '0 0 4px 0' }}>Assinatura: <code style={{ color: '#facc15' }}>{u.assinatura}</code></p>
+                    <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 12px 0' }}>Equipamento/IP: <span style={{ color: '#22c55e' }}>{u.ipDispositivo}</span> ({u.dataHora})</p>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                      {u.candidatos.map((c, idx) => (
+                        <div key={idx} style={{ backgroundColor: '#1e293b', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
+                          <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#94a3b8' }}>{c.nome}</p>
+                          <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>{c.votos} votos</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button 
+                      onClick={() => partilharTexto(`Resultado - ${u.secao}`, textoSecao)}
+                      style={{ width: '100%', backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
+                      📢 Partilhar Resultado desta Seção
+                    </button>
                   </div>
-                  <p style={{ fontSize: '12px', color: '#cbd5e1', margin: '0 0 4px 0' }}>Assinatura: <code style={{ color: '#facc15' }}>{u.assinatura}</code></p>
-                  <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 12px 0' }}>Equipamento/IP: <span style={{ color: '#22c55e' }}>{u.ipDispositivo}</span> ({u.dataHora})</p>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
-                    {u.candidatos.map((c, idx) => (
-                      <div key={idx} style={{ backgroundColor: '#1e293b', padding: '8px', borderRadius: '6px', textAlign: 'center' }}>
-                        <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#94a3b8' }}>{c.nome}</p>
-                        <p style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#f8fafc' }}>{c.votos} votos</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -256,9 +276,9 @@ function App() {
           <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #334155' }}>
             <BannerGoogle local="Topo do Placar Geral" />
             <h2 style={{ color: '#facc15', marginTop: 0, marginBottom: '8px' }}>Placar Geral Consolidado</h2>
-            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>Soma acumulada de todos os votos apurados de todos os candidatos em todas as seções.</p>
+            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>Soma acumulada de todos os votos apurados nas seções.</p>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
               {Object.entries(totalGeral).map(([nome, total]) => (
                 <div key={nome} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #334155' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#f8fafc' }}>{nome}</span>
@@ -268,6 +288,16 @@ function App() {
                 </div>
               ))}
             </div>
+
+            <button 
+              onClick={() => {
+                const resumoGeral = "🏆 PLACAR GERAL CONSOLIDADO - IMPRESSÃO DIGITAL\n\n" + 
+                  Object.entries(totalGeral).map(([nome, total]) => `• ${nome}: ${total} votos`).join('\n');
+                partilharTexto("Placar Geral Eleitoral", resumoGeral);
+              }}
+              style={{ width: '100%', backgroundColor: '#25D366', color: '#fff', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
+              📢 Partilhar Placar Geral nas Redes Sociais
+            </button>
           </div>
         )}
 
